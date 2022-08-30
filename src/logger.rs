@@ -1,10 +1,25 @@
+// minecraft honeypot does honeypot things for minecraft and proxies which is cool
+// Copyright (C) 2022 cleonyc
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use std::path::PathBuf;
 
-use webhook::{client::WebhookClient, models::Message};
+
 
 use crate::{
     config::Config,
-    database::{Connection, Database, Client}, webhook::{SummaryWebhook, ConWebhook},
+    database::{Connection, Database}, webhook::{SummaryWebhook, ConWebhook},
 };
 pub struct Logger {
     pub database: Database,
@@ -19,7 +34,7 @@ impl Logger {
             .expect("Invalid config file specified");
         let database  = Database::open(config.clone().database).await.unwrap_or_default();
         database.save().await?;
-        let summary_webhook = SummaryWebhook::new(config.clone().summary_webhook_url, config.clone().summary_message_id, database.clone(), config.ipinfo_token.clone()).await?;
+        let summary_webhook = SummaryWebhook::new(config.clone().summary_webhook_url, config.clone().summary_message_id, database.clone()).await?;
         if config.summary_message_id.is_none() {
             config.summary_message_id = Some(summary_webhook.message_id);
             config.save(config_path).await?;

@@ -2,6 +2,7 @@
 name = "minecraft-honeypot"
 version = "0.1.0"
 edition = "2021"
+description = "minecraft honeypot does honeypot things for minecraft and proxies which is cool"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,10 +12,13 @@ tokio = { version = "*",  features = ["full"] }
 toml = "0.5"
 serde = "1.0.144"
 serde_json = "1.0.85"
-time = {version = "0.3.14", features = ["serde-human-readable"]}
+time = {version = "0.3.14", features = ["serde", "formatting"]}
 ipinfo = "0.3.1"
 owo-colors = "3.5.0"
 anyhow = "1.0.62"
 clap = { version = "3.2.18", features = ["derive"] }
 webhook = { version = "2.0.0" }
 isahc = { version = "1.7.2", features = ["json"]}
+
+[profile.release]
+lto = true

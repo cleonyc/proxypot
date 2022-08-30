@@ -2,37 +2,41 @@
   {
     "connections": [
       {
-        "duration_connected": "0.179671047",
+        "duration_connected": [
+          1,
+          36082295
+        ],
         "server_responded": true,
-        "port": 45110
+        "port": 34168
       },
       {
-        "duration_connected": "0.088050948",
+        "duration_connected": [
+          0,
+          179102800
+        ],
         "server_responded": true,
-        "port": 45122
+        "port": 35008
       },
       {
-        "duration_connected": "7.708883782",
+        "duration_connected": [
+          0,
+          88451521
+        ],
         "server_responded": true,
-        "port": 56978
-      },
-      {
-        "duration_connected": "0.308380149",
-        "server_responded": true,
-        "port": 58912
-      },
-      {
-        "duration_connected": "0.314250178",
-        "server_responded": true,
-        "port": 53404
-      },
-      {
-        "duration_connected": "0.087996512",
-        "server_responded": true,
-        "port": 42570
+        "port": 35012
       }
     ],
-    "last_connected": "2022-08-29 23:59:06.049716428 +00:00:00",
+    "last_connected": [
+      2022,
+      242,
+      0,
+      56,
+      36,
+      419607942,
+      0,
+      0,
+      0
+    ],
     "ip": "127.0.0.1"
   }
 ]

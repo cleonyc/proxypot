@@ -1,4 +1,18 @@
-use ipinfo::{IpInfo, IpInfoConfig};
+// minecraft honeypot does honeypot things for minecraft and proxies which is cool
+// Copyright (C) 2022 cleonyc
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use isahc::{AsyncReadResponseExt, HttpClient, Request};
 use serde_json::Value;
 use webhook::{client::WebhookClient, models::Message};
@@ -10,14 +24,12 @@ pub struct SummaryWebhook {
     url: String,
     pub message_id: u64,
     client: HttpClient,
-    ipinfo: String,
 }
 impl SummaryWebhook {
     pub async fn new(
         url: String,
         message_id: Option<u64>,
         database: Database,
-        ipinfo: String,
     ) -> anyhow::Result<Self> {
         let client = HttpClient::new()?;
         let id = if let Some(id) = message_id {
@@ -46,7 +58,6 @@ impl SummaryWebhook {
             url,
             message_id: id,
             client,
-            ipinfo,
         })
     }
 
@@ -128,13 +139,13 @@ impl ConWebhook {
                     e.field(
                         "ip",
                         &format!(
-                            "(`{}`)[https://ipinfo.io/{}] | {}",
+                            "[`{}`](https://ipinfo.io/{}) | {}",
                             client.ip,
                             client.ip,
                             if let Ok(json_res) = &ipinfo_res {
-                                json_res["org"].as_str().unwrap_or("d")
+                                json_res["org"].as_str().unwrap_or("")
                             } else {
-                                "a"
+                                ""
                             }
                         ),
                         false,
