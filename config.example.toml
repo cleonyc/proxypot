@@ -1,0 +1,6 @@
+database = "database.json"
+webhook_url= ""
+summary_webhook_url = ""
+bind = "0.0.0.0:25565"
+server = ""
+ipinfo_token = ""

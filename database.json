@@ -1,0 +1,38 @@
+[
+  {
+    "connections": [
+      {
+        "duration_connected": "0.179671047",
+        "server_responded": true,
+        "port": 45110
+      },
+      {
+        "duration_connected": "0.088050948",
+        "server_responded": true,
+        "port": 45122
+      },
+      {
+        "duration_connected": "7.708883782",
+        "server_responded": true,
+        "port": 56978
+      },
+      {
+        "duration_connected": "0.308380149",
+        "server_responded": true,
+        "port": 58912
+      },
+      {
+        "duration_connected": "0.314250178",
+        "server_responded": true,
+        "port": 53404
+      },
+      {
+        "duration_connected": "0.087996512",
+        "server_responded": true,
+        "port": 42570
+      }
+    ],
+    "last_connected": "2022-08-29 23:59:06.049716428 +00:00:00",
+    "ip": "127.0.0.1"
+  }
+]
