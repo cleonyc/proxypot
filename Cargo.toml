@@ -3,7 +3,8 @@ name = "minecraft-honeypot"
 version = "0.1.0"
 edition = "2021"
 description = "minecraft honeypot does honeypot things for minecraft and proxies which is cool"
-
+license = "GPL3"
+license-file = "LICENSE"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
