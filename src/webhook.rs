@@ -11,159 +11,171 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+use std::fmt::{Debug, Display};
+
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use isahc::{AsyncReadResponseExt, HttpClient, Request};
 use serde_json::Value;
 use webhook::{client::WebhookClient, models::Message};
 
-use crate::database::{Client, Connection, Database};
+use crate::database::{Client, Database, Login, Ping};
 
 #[derive(Clone)]
 pub struct SummaryWebhook {
     url: String,
-    pub message_id: u64,
+    pub message_ids: Vec<u64>,
     client: HttpClient,
 }
 impl SummaryWebhook {
     pub async fn new(
         url: String,
-        message_id: Option<u64>,
+        message_ids: Vec<u64>,
         database: Database,
     ) -> anyhow::Result<Self> {
         let client = HttpClient::new()?;
-        let id = if let Some(id) = message_id {
-            id
-        } else {
-            let req = Request::post(&format!("{}?wait=true", url.trim_end_matches("/")))
-            .header("Content-Type", "application/json")
-            // this is the best way to handle rate limits:
-            .body(serde_json::to_string(&gen_summmary_message(
-                database.clone(),
-            ))?)?;
-            let mut resp = client
-                .send_async(
-                    req
-                )
-                .await?;
-            let json: Value = resp.json().await?;
-            json["id"]
-                .as_str()
-                .expect("bad id in response from discord when creating webhook, what the fuck")
-                .parse()
-                .expect("apparently the id from the response is not a number (WTF??)")
-        };
-
-        Ok(Self {
+        let mut ret = Self {
             url,
-            message_id: id,
+            message_ids: message_ids,
             client,
-        })
+        };
+        ret.update(database.clone()).await?;
+
+        Ok(ret)
     }
 
-    pub async fn update(&self, database: Database) -> anyhow::Result<()> {
-        self.client
-            .send_async(
-                Request::patch(&format!(
-                    "{}/messages/{}",
-                    self.url.clone(),
-                    self.message_id
-                ))
-                .header("Content-Type", "application/json")
-                // this is the best way to handle rate limits:
-                .header("x-pls-no-rate-limit", "owo")
-                .body(serde_json::to_string(&gen_summmary_message(
-                    database.clone(),
-                ))?)?,
-            )
-            .await?;
+    pub async fn update(&mut self, database: Database) -> anyhow::Result<()> {
+        let gen_messages = gen_summmary_messages(database.clone());
+        if gen_messages.len() != database.data.len() / 25 + 1{
+            for index in (database.data.len() / 25 )..gen_messages.len() - (database.data.len() / 25 + 1) {
+                let msg = &gen_messages[index];
+                let req = Request::post(&format!("{}?wait=true", self.url.trim_end_matches("/")))
+                    .header("Content-Type", "application/json")
+                    .body(serde_json::to_string(&msg)?)?;
+                let mut resp = self.client.send_async(req).await?;
+                let json: Value = resp.json().await?;
+                let id: u64 = json["id"]
+                    .as_str()
+                    .expect("bad id in response from discord when creating webhook, what the fuck")
+                    .parse()
+                    .expect("apparently the id from the response is not a number (WTF??)");
+                self.message_ids.push(id);
+            }
+        }
+        for (index, msg) in gen_summmary_messages(database.clone()).iter().enumerate() {
+            self.client
+                .send_async(
+                    Request::patch(&format!(
+                        "{}/messages/{}",
+                        self.url.clone(),
+                        self.message_ids[index]
+                    ))
+                    .header("Content-Type", "application/json")
+                    // this is the best way to handle rate limits:
+                    .header("x-pls-no-rate-limit", "owo")
+                    .body(serde_json::to_string(&msg)?)?,
+                )
+                .await?;
+        }
         Ok(())
     }
 }
-fn gen_summmary_message(database: Database) -> Message {
-    let mut m = Message::new();
-    m.embed(|e| {
-        e.title("Clients");
-        for client in database.data.clone() {
-            e.field(
-                &format!("`{}`", &client.ip),
-                &format!(
-                    "Connections: `{}`{}",
-                    client.connections.len(),
-                    if client
-                        .connections
-                        .iter()
-                        .filter(|con| con.server_responded == true)
-                        .collect::<Vec<&Connection>>()
-                        .len()
-                        > 0
-                    {
-                        ", Server responded (valid ping?)"
-                    } else {
-                        ", Server did not respond (port scanner?)"
-                    }
-                ),
-                false,
-            );
-        }
-        e
-    });
-    m
+fn gen_summmary_messages(database: Database) -> Vec<Message> {
+    let mut ret = vec![];
+    for chunk_num in 0..(database.data.clone().len() / 25 + 1) {
+        let mut m = Message::new();
+        m.embed(|e| {
+            if chunk_num == 0 {
+                e.title("Clients");
+            }
+            for client in &mut database.data.clone()[..((25 * (chunk_num + 1)) - (25 - database.data.len() % 25))] {
+                e.field(
+                        &format!("`{}`", &client.ip),
+                    &format!(
+                        "Pings: `{}` (Last: {}), Logins: `{}` (Last: {}), Con: {}",
+                        client.pings.len(),
+                        if client.pings.len() == 0 {
+                            "N/A".to_string()
+                        } else {
+                            format!(
+                                "<t:{}:R>",
+                                client
+                                    .pings
+                                    .iter()
+                                    .reduce(|a, b| if a.time > b.time { b } else { a })
+                                    .unwrap()
+                                    .time
+                                    .unix_timestamp()
+                            )
+                        },
+                        client.logins.len(),
+                        if client.logins.len() == 0 {
+                            "N/A".to_string()
+                        } else {
+                            format!(
+                                "<t:{}:R>",
+                                client
+                                    .logins
+                                    .iter()
+                                    .reduce(|a, b| if a.time > b.time { b } else { a })
+                                    .unwrap()
+                                    .time
+                                    .unix_timestamp()
+                            )
+                        },
+                        client.ipinfo
+                    ),
+                    true,
+                );
+            }
+            e
+        });
+        ret.push(m)
+    }
+    ret
 }
 #[derive(Clone)]
 pub struct ConWebhook {
     url: String,
-    ipinfo: String,
 }
 impl ConWebhook {
-    pub fn new(url: String, ipinfo: String) -> Self {
-        Self { url, ipinfo }
+    pub fn new(url: String) -> Self {
+        Self { url }
     }
-    pub async fn handle_connect(&self, con: Connection, client: Client) -> anyhow::Result<()> {
-        let cons = client
-            .connections
-            .iter()
-            .filter(|&c| *c != con)
-            .collect::<Vec<&Connection>>()
-            .len();
-        let ipinfo_res: Result<Value, serde_json::Error> = isahc::get_async(format!("https://ipinfo.com/{}?token={}", client.ip.clone(), &self.ipinfo)).await?.json().await;
+    pub async fn handle_login(&self, client: Client, login: Login) -> anyhow::Result<()> {
         WebhookClient::new(&self.url)
             .send(|m| {
-                m.embed(|e| {
-                    e.title("New connection");
-                    if cons == 0 {
-                        e.description("**First Connection!**");
-                    } else {
-                        e.description(&format!("connected {} times before", cons));
-                    };
-                    e.field(
-                        "ip",
-                        &format!(
-                            "[`{}`](https://ipinfo.io/{}) | {}",
-                            client.ip,
-                            client.ip,
-                            if let Ok(json_res) = &ipinfo_res {
-                                json_res["org"].as_str().unwrap_or("")
-                            } else {
-                                ""
-                            }
-                        ),
-                        false,
+                m.content(
+                    &format!(
+                        "`{}` joined the server
+{}
+{} | {}
+                ",
+                        login.username,
+                        pretty_ip(&client.ip),
+                        client.ipinfo,
+                        if client.logins.len() == 1 {
+                            "**First Login**".to_string()
+                        } else {
+                            format!("Previous logins: `{}`", client.logins.len())
+                        }
                     )
-                    .field(
-                        "duration connected",
-                        &con.duration_connected.to_string(),
-                        false,
-                    )
-                    .field(
-                        "server responded",
-                        &con.server_responded.to_string(),
-                        false,
-                    )
-                })
+                    .trim(),
+                )
             })
             .await
             .expect("failed to send webhook");
         Ok(())
     }
+    pub async fn handle_ping(&self, client: Client, ping: Ping) -> anyhow::Result<()> {
+        WebhookClient::new(&self.url)
+            .send(|m| m.content(&format!("Ping from {}, Con: {}, Target: {}", pretty_ip(&client.ip), client.ipinfo, ping.target)))
+            .await
+            .unwrap();
+        Ok(())
+    }
+}
+
+fn pretty_ip(ip: &str) -> String {
+    format!("[`{}`](https://ipinfo.io/{})", ip, ip)
 }

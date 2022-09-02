@@ -19,11 +19,12 @@ use std::path::PathBuf;
 
 use crate::{
     config::Config,
-    database::{Connection, Database}, webhook::{SummaryWebhook, ConWebhook},
+    database::{Database}, webhook::{SummaryWebhook, ConWebhook}, packet::PossiblePacket,
 };
 pub struct Logger {
     pub database: Database,
     pub config: Config,
+    config_path: PathBuf,
     pub summary_webhook: SummaryWebhook,
     pub webhook: ConWebhook
 }
@@ -34,25 +35,50 @@ impl Logger {
             .expect("Invalid config file specified");
         let database  = Database::open(config.clone().database).await.unwrap_or_default();
         database.save().await?;
-        let summary_webhook = SummaryWebhook::new(config.clone().summary_webhook_url, config.clone().summary_message_id, database.clone()).await?;
-        if config.summary_message_id.is_none() {
-            config.summary_message_id = Some(summary_webhook.message_id);
-            config.save(config_path).await?;
-        }
-        let webhook = ConWebhook::new(config.clone().webhook_url, config.clone().ipinfo_token);
+        let summary_webhook = SummaryWebhook::new(config.clone().summary_webhook_url, config.clone().summary_message_ids, database.clone()).await?;
+        config.summary_message_ids = summary_webhook.clone().message_ids;
+        config.save(config_path.clone()).await?;
+        // if config.summary_message_id.is_none() {
+        //     config.summary_message_id = Some(summary_webhook.message_id);
+        //     config.save(config_path).await?;
+        // }
+        let webhook = ConWebhook::new(config.clone().webhook_url);
         
         Ok(Self {
+            config_path,
             database,
             config,
             summary_webhook,
             webhook
         })
     }
-    pub async fn handle_connect(&mut self, ip: String, con: Connection) -> anyhow::Result<()>{
-        let client = self.database.handle_connect(con.clone(), ip).await?;
-        self.webhook.handle_connect(con.clone(), client.clone()).await?;
-        self.summary_webhook.update(self.database.clone()).await?;
+    pub async fn handle_connect(&mut self, packet: PossiblePacket, ip: &str) -> anyhow::Result<()> {
+        match packet {
+            PossiblePacket::LoginStart { packet } => {
+                match packet {
+                    azalea_protocol::packets::login::ServerboundLoginPacket::ServerboundHelloPacket(packet) => {
+                        let (client, login) = self.database.handle_login(ip, packet.username).await?;
+                        self.summary_webhook.update(self.database.clone()).await?;
+                        self.webhook.handle_login(client, login).await?;
+                        self.config.summary_message_ids = self.summary_webhook.clone().message_ids;
+                        self.config.save(self.config_path.clone()).await?;
+                    },
+                    azalea_protocol::packets::login::ServerboundLoginPacket::ServerboundKeyPacket(_) => {},
+                    azalea_protocol::packets::login::ServerboundLoginPacket::ServerboundCustomQueryPacket(_) => {},
+                }
+            },
+            PossiblePacket::Status { packet } => {
+                match packet {
+                    azalea_protocol::packets::handshake::ServerboundHandshakePacket::ClientIntentionPacket(packet) => {
+                        let (client, ping) = self.database.handle_ping(ip, packet.hostname).await?;
+                        self.summary_webhook.update(self.database.clone()).await?;
+                        self.webhook.handle_ping(client, ping).await?;
+                        self.config.summary_message_ids = self.summary_webhook.clone().message_ids;
+                        self.config.save(self.config_path.clone()).await?
+                    },
+                }
+            }
+        };
         Ok(())
     }
-    
 }

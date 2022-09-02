@@ -13,14 +13,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-use std::path::{PathBuf};
+use std::{path::PathBuf, str::FromStr};
 
+use anyhow::bail;
+use isahc::{AsyncReadResponseExt, Request};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use time::{Duration, OffsetDateTime};
 use tokio::{
     fs::{File, OpenOptions},
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
 };
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct Database {
@@ -46,25 +50,67 @@ impl Database {
             .await?;
         Ok(())
     }
-    pub async fn handle_connect(&mut self, connection: Connection, ip: String) -> anyhow::Result<Client> {
-        let mut ret_client = None;
-        for client in self.data.iter_mut() {
-            if client.ip == ip {
-                client.connections.push(connection.clone());
-                ret_client = Some(client.clone());
-                break;
-            }
-        }
-        if ret_client.is_none() {
-            ret_client = Some(Client {
-                connections: vec![connection],
-                last_connected: OffsetDateTime::now_utc(),
-                ip
-            });
-            self.data.push(ret_client.clone().unwrap())
-        }
+    pub async fn handle_ping(&mut self, ip: &str, target: String) -> anyhow::Result<(Client, Ping)>{
+        let client = match self.data.iter_mut().find(|client| client.ip == ip) {
+            Some(client) => {client},
+            None => {
+                let client = Client {
+                    ip: ip.to_string(),
+                    logins: vec![],
+                    pings: vec![],
+                    ipinfo: get_ipinfo(&ip).await.unwrap_or("".to_string())
+                };
+                self.data.push(client);
+                self.data.iter_mut().find(|c| c.ip == ip).unwrap()
+            },
+        };
+        let ping = Ping {
+            target,
+            time: OffsetDateTime::now_utc()
+        };
+        client.pings.push(ping.clone());
+        let cloned = client.clone();
         self.save().await?;
-        Ok(ret_client.unwrap())
+        Ok((cloned, ping))
+    }
+    pub async fn handle_login(&mut self, ip: &str, mut username: String) -> anyhow::Result<(Client, Login)> {
+        let mut resp = isahc::get_async(format!("https://api.mojang.com/users/profiles/minecraft/{}", username)).await?;
+        let uuid = if resp.status() != 200 {
+            username += " [Cracked]";
+            None
+        } else {
+            let json: Value = resp.json().await?;
+            match json["id"].as_str() {
+                Some(uuid) => {Some(uuid::Uuid::from_str(uuid)?)},
+                None => {
+                    username += " [Cracked]";
+                    None
+                },
+            }
+        };
+        let client = match self.data.iter_mut().find(|client| client.ip == ip) {
+            Some(client) => {client},
+            None => {
+                let client = Client {
+                    ip: ip.to_string(),
+                    logins: vec![],
+                    pings: vec![],
+                    ipinfo: get_ipinfo(&ip).await.unwrap_or("".to_string())
+                };
+                self.data.push(client);
+                self.data.iter_mut().find(|c| c.ip == ip).unwrap()
+            },
+        };
+        let login = Login {
+            username,
+            uuid,
+            time: OffsetDateTime::now_utc(),
+        };
+        client.logins.push(login.clone());
+        let cloned = client.clone();
+
+        self.save().await?;
+        Ok((cloned, login))
     }
 }
 impl Default for Database {
@@ -75,14 +121,32 @@ impl Default for Database {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Client {
-    pub connections: Vec<Connection>,
-    pub last_connected: OffsetDateTime,
+    pub logins: Vec<Login>,
+    pub pings: Vec<Ping>,
     pub ip: String,
+    pub ipinfo: String
 }
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Login {
+    pub username: String,
+    pub uuid: Option<Uuid>,
+    pub time: OffsetDateTime
+}
+#[derive(Serialize, Deserialize, Clone)]
 
-pub struct Connection {
-    pub duration_connected: Duration,
-    pub server_responded: bool,
-    pub port: u16, 
+pub struct Ping {
+    pub time: OffsetDateTime,
+    pub target: String,
+}
+async fn get_ipinfo(ip: &str) -> anyhow::Result<String> {
+    let request = Request::get(format!("https://ipinfo.io/widget/demo/{}", ip)).header("referer", "https://ipinfo.io/").body("")?;
+    let mut r = isahc::send_async(request).await?;
+    let json: Value = r.json().await?;
+    Ok(format!("Company: {}, Location: {}, {}", json["data"]["company"]["name"].as_str().unwrap_or("Unknown"), json["data"]["region"].as_str().unwrap_or("Unknown"), json["data"]["country"].as_str().unwrap_or("Unknown")))
+}
+
+#[tokio::test]
+async fn test_get_ipinfo() {
+    let ipinfo = get_ipinfo("89.45.224.142").await.unwrap(); 
+    assert_eq!(ipinfo, "Company: M247 LTD New York Infrastructure, Location: New York, US".to_string())
 }

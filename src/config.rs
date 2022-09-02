@@ -22,11 +22,10 @@ use tokio::{fs::{File, OpenOptions}, io::{BufReader, AsyncReadExt, AsyncWriteExt
 pub struct Config {
     pub webhook_url: String,
     pub summary_webhook_url: String,
-    pub summary_message_id: Option<u64>,
+    pub summary_message_ids: Vec<u64>,
     pub bind: String,
     pub server: String,
     pub database: PathBuf,
-    pub ipinfo_token: String,
 }
 impl Config {
     pub async fn open(path: impl AsRef<Path>) -> anyhow::Result<Self> {
