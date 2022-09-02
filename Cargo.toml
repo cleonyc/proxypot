@@ -1,8 +1,8 @@
 [package]
 name = "proxypot"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
-description = "minecraft honeypot does honeypot things for minecraft and proxies which is cool"
+description = "Proxies all incoming connections to a minecraft server of your choosing, while also logging all ping and login requests to a json file and discord webhook."
 license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

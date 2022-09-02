@@ -17,7 +17,7 @@
 use azalea_protocol::packets::handshake::ServerboundHandshakePacket;
 use azalea_protocol::packets::login::ServerboundLoginPacket;
 use azalea_protocol::read::read_packet;
-use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 // pub async fn read_packet<'a, P: ProtocolPacket, R>(
 //     stream: &'a mut R,

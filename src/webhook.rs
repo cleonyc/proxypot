@@ -36,7 +36,7 @@ impl SummaryWebhook {
         let client = HttpClient::new()?;
         let mut ret = Self {
             url,
-            message_ids: message_ids,
+            message_ids,
             client,
         };
         ret.update(database.clone()).await?;
@@ -92,7 +92,7 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
                 e.field(
                         &format!("`{}`", &client.ip),
                     &format!(
-                        "Pings: `{}` (Last: {}), Logins: `{}` (Last: {}), Con: {}",
+                        "Pings: `{}` (Last: {}), Logins: `{}` (Last: {}), `{}`",
                         client.pings.len(),
                         if client.pings.len() == 0 {
                             "N/A".to_string()
@@ -125,7 +125,7 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
                         },
                         client.ipinfo
                     ),
-                    true,
+                    false,
                 );
             }
             e
