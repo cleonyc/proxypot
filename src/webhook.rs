@@ -46,8 +46,10 @@ impl SummaryWebhook {
 
     pub async fn update(&mut self, database: Database) -> anyhow::Result<()> {
         let gen_messages = gen_summmary_messages(database.clone());
-        if gen_messages.len() != database.data.len() / 25 + 1{
-            for index in (database.data.len() / 25 )..gen_messages.len() - (database.data.len() / 25 + 1) {
+        if gen_messages.len() != self.message_ids.len() {
+            println!("a");
+            for index in self.message_ids.len()..gen_messages.len() {
+                println!("i: {index}");
                 let msg = &gen_messages[index];
                 let req = Request::post(&format!("{}?wait=true", self.url.trim_end_matches("/")))
                     .header("Content-Type", "application/json")
@@ -61,6 +63,9 @@ impl SummaryWebhook {
                     .expect("apparently the id from the response is not a number (WTF??)");
                 self.message_ids.push(id);
             }
+        } else {
+         
+            println!("B");
         }
         for (index, msg) in gen_summmary_messages(database.clone()).iter().enumerate() {
             self.client
