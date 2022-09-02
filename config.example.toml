@@ -1,7 +1,6 @@
 database = "database.json"
-webhook_url= ""
-summary_webhook_url = ""
+webhook_url= "" # set this
+summary_webhook_url = "" # set this
 summary_message_ids = []
 bind = "0.0.0.0:25565"
-server = ""
-ipinfo_token = ""
+server = "" # set this to the server you want to proxy to
