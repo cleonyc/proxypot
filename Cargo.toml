@@ -1,6 +1,6 @@
 [package]
 name = "proxypot"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "minecraft honeypot does honeypot things for minecraft and proxies which is cool"
 license = "GPL-3.0-or-later"
