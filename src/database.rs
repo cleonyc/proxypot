@@ -15,11 +15,11 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::bail;
+
 use isahc::{AsyncReadResponseExt, Request};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use time::{Duration, OffsetDateTime};
+use time::{OffsetDateTime};
 use tokio::{
     fs::{File, OpenOptions},
     io::{AsyncReadExt, AsyncWriteExt, BufReader},

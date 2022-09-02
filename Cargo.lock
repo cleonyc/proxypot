@@ -2935,7 +2935,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 [[package]]
 name = "webhook"
 version = "2.0.0"
-source = "git+https://github.com/cleonyc/webhook-rs?branch=fix-embed-field-check#dc254c976926144ca2fc9cbdb2f948219fda747a"
+source = "git+https://github.com/cleonyc/webhook-rs?branch=fix-embed-field-check#be2e75109d8b8ac290a6c8042be26e95c48ca71b"
 dependencies = [
  "hyper 0.14.20",
  "hyper-tls 0.5.0",

@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-use std::fmt::{Debug, Display};
+
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
@@ -148,8 +148,8 @@ impl ConWebhook {
                 m.content(
                     &format!(
                         "`{}` joined the server
-{}
 {} | {}
+{}
                 ",
                         login.username,
                         pretty_ip(&client.ip),

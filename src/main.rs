@@ -19,29 +19,28 @@ mod logger;
 mod packet;
 mod webhook;
 
-use azalea_buf::Readable;
-use azalea_crypto::Aes128CfbDec;
-use azalea_protocol::packets::game::serverbound_pong_packet::ServerboundPongPacket;
-use azalea_protocol::packets::login::ServerboundLoginPacket;
-use azalea_protocol::packets::status::ServerboundStatusPacket;
-use azalea_protocol::read::read_packet;
+
+
+
+
+
+
 use clap::Parser;
 use futures::FutureExt;
 use logger::Logger;
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
-use time::OffsetDateTime;
+
 use tokio::io::AsyncWriteExt;
-use tokio::io::{self, AsyncRead, AsyncReadExt};
-use tokio::net::tcp::ReadHalf;
+use tokio::io::{self};
+
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
 use std::error::Error;
 
-use crate::packet::{get_all_packets, try_get_packet};
+use crate::packet::{get_all_packets};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -80,7 +79,7 @@ async fn transfer(
 ) -> Result<(), Box<dyn Error>> {
     let peer = inbound.peer_addr()?.to_string();
     let split = peer.split(":").collect::<Vec<&str>>();
-    let mut timeout = (rand::random::<f64>() * 60.0 * 30.0) as u64 + 10 * 60;
+    let mut timeout = (rand::random::<f64>() * 60.0 * 20.0) as u64 + 10 * 60;
     if let Some(client)  = logger.read().await.database.data.iter().find(|c| c.ip == split[0]) {
         if client.logins.len() > 1 {
             timeout = (rand::random::<f64>() * 60.0 * 2.0) as u64 + 10;
@@ -96,13 +95,20 @@ async fn transfer(
     let client_to_server = async {
         // println!("start");
         for packet in get_all_packets(&mut ri,&mut wo).await {
-            detected_packets.push(packet);
+            let lc  = logger.clone();
+            let ip = split[0].clone().to_string();
+            let p = packet.clone();
+            detected_packets.push(tokio::spawn(async move {
+                lc.write().await.handle_connect(p, &ip).await
+            }));
+            // println!("packet: {:?}", packet)
         }
         io::copy(&mut ri, &mut wo).await?;
         let r = wo.shutdown().await;
         r
     };
 
+    
     let server_to_client = async {
         io::copy(&mut ro, &mut wi).await?;
         wi.shutdown().await
@@ -114,9 +120,9 @@ async fn transfer(
         Ok(_) => {}
         Err(_) => {}
     };
-    for packet in detected_packets {
-        logger.write().await.handle_connect(packet, split[0]).await?;
-    }
+    // for jh in detected_packets {
+    //     jh.await??;
+    // }
     tokio::time::sleep(StdDuration::from_secs(60 * 5)).await;
     Ok(())
 }
