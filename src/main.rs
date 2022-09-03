@@ -187,5 +187,8 @@ async fn transfer(
         tokio::time::timeout(StdDuration::from_secs(timeout_seconds), server_to_client)
     );
 
+    // so it times out
+    tokio::time::sleep(StdDuration::from_millis(5 * 60 * 1000)).await;
+
     Ok(())
 }
