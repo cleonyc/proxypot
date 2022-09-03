@@ -104,7 +104,12 @@ impl Database {
             }
         };
         let client = match self.data.iter_mut().find(|client| client.ip == ip) {
-            Some(client) => client,
+            Some(client) => {
+                if client.ipinfo == "" {
+                    client.ipinfo = get_ipinfo(&client.ip).await?
+                }
+                client
+            },
             None => {
                 let client = Client {
                     ip: ip.to_string(),
@@ -130,10 +135,7 @@ impl Database {
 }
 impl Default for Database {
     fn default() -> Self {
-        Self {
-            path: "./database.json".into(),
-            data: vec![],
-        }
+        Self { path: "./database.json".into(), data: vec!() }
     }
 }
 
