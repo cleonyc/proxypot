@@ -82,8 +82,6 @@ async fn transfer(
         .map(|c| c.logins.len())
         .unwrap_or(0);
 
-    println!("reconnects: {}", reconnects);
-
     let timeout_seconds = if reconnects == 0 {
         // first join, 10-30 minutes
         (rand::random::<f64>() * 60.0 * 20.0) as u64 + 10 * 60
@@ -94,7 +92,6 @@ async fn transfer(
 
     // ping is random between 0 and reconnects*1000ms
     let simulated_ping: u64 = (rand::random::<f32>() * (reconnects as f32) * 1000.0) as u64;
-    println!("simulated_ping: {}ms", simulated_ping);
 
     let mut outbound = match TcpStream::connect(proxy_addr).await {
         Ok(o) => o,
