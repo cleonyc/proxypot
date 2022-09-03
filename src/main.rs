@@ -87,12 +87,9 @@ async fn transfer(
     let timeout_seconds = if reconnects == 0 {
         // first join, 10-30 minutes
         (rand::random::<f64>() * 60.0 * 20.0) as u64 + 10 * 60
-    } else if reconnects == 1 {
-        // second join, 5-20 minutes
-        (rand::random::<f64>() * 60.0 * 15.0) as u64 + 5 * 60
     } else {
-        // they've joined at least twice, 30s-5m
-        (rand::random::<f64>() * 60.0 * 5.0) as u64 + 30
+        // they've joined before, 10-130s
+        (rand::random::<f64>() * 60.0 * 2.0) as u64 + 10
     };
 
     // ping is random between 0 and reconnects*1000ms
