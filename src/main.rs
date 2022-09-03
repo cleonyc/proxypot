@@ -73,20 +73,25 @@ async fn transfer(
     logger: Arc<RwLock<Logger>>,
 ) -> Result<(), Box<dyn Error>> {
     let peer = inbound.peer_addr()?.to_string();
-    let split = peer.split(":").collect::<Vec<&str>>();
-    let mut timeout = (rand::random::<f64>() * 60.0 * 20.0) as u64 + 10 * 60;
-    if let Some(client) = logger
+    let split = peer.split(':').collect::<Vec<&str>>();
+    let reconnects = logger
         .read()
         .await
         .database
         .data
         .iter()
         .find(|c| c.ip == split[0])
-    {
-        if client.logins.len() > 1 {
-            timeout = (rand::random::<f64>() * 60.0 * 2.0) as u64 + 10;
-        }
-    }
+        .map(|c| c.logins.len())
+        .unwrap_or(0);
+
+    let timeout = if reconnects == 0 {
+        // first join, 10-30 minutes
+        (rand::random::<f64>() * 60.0 * 20.0) as u64 + 10 * 60
+    } else {
+        // they've joined before, 10-130 seconds
+        (rand::random::<f64>() * 60.0 * 2.0) as u64 + 10
+    };
+
     let mut outbound = match TcpStream::connect(proxy_addr).await {
         Ok(o) => o,
         Err(_) => return Ok(()),
@@ -97,30 +102,27 @@ async fn transfer(
     let client_to_server = async {
         // println!("start");
         for packet in get_all_packets(&mut ri, &mut wo).await {
-            let lc = logger.clone();
-            let ip = split[0].clone().to_string();
+            let logger = logger.clone();
+            let ip = split[0].to_string();
             let p = packet.clone();
             detected_packets.push(tokio::spawn(async move {
-                lc.write().await.handle_connect(p, &ip).await
+                logger.write().await.handle_connect(p, &ip).await
             }));
             // println!("packet: {:?}", packet)
         }
         io::copy(&mut ri, &mut wo).await?;
-        let r = wo.shutdown().await;
-        r
+        wo.shutdown().await
     };
 
     let server_to_client = async {
         io::copy(&mut ro, &mut wi).await?;
         wi.shutdown().await
     };
-    match tokio::try_join!(
+
+    let _ = tokio::try_join!(
         tokio::time::timeout(StdDuration::from_secs(timeout), client_to_server),
         tokio::time::timeout(StdDuration::from_secs(timeout), server_to_client)
-    ) {
-        Ok(_) => {}
-        Err(_) => {}
-    };
+    );
     // for jh in detected_packets {
     //     jh.await??;
     // }

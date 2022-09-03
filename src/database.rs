@@ -36,7 +36,7 @@ impl Database {
         let mut buf_reader = BufReader::new(&mut file);
         let mut content = String::new();
         buf_reader.read_to_string(&mut content).await?;
-        if content == "" {
+        if content.is_empty() {
             content = "[]".to_string()
         }
         let data: Vec<Client> = serde_json::from_str(&content)?;
@@ -65,7 +65,7 @@ impl Database {
                     ip: ip.to_string(),
                     logins: vec![],
                     pings: vec![],
-                    ipinfo: get_ipinfo(&ip).await.unwrap_or("".to_string()),
+                    ipinfo: get_ipinfo(ip).await.unwrap_or_else(|_| "".to_string()),
                 };
                 self.data.push(client);
                 self.data.iter_mut().find(|c| c.ip == ip).unwrap()
@@ -110,7 +110,7 @@ impl Database {
                     ip: ip.to_string(),
                     logins: vec![],
                     pings: vec![],
-                    ipinfo: get_ipinfo(&ip).await.unwrap_or("".to_string()),
+                    ipinfo: get_ipinfo(ip).await.unwrap_or_else(|_| "".to_string()),
                 };
                 self.data.push(client);
                 self.data.iter_mut().find(|c| c.ip == ip).unwrap()

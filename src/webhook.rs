@@ -45,9 +45,8 @@ impl SummaryWebhook {
     pub async fn update(&mut self, database: Database) -> anyhow::Result<()> {
         let gen_messages = gen_summmary_messages(database.clone());
         if gen_messages.len() != self.message_ids.len() {
-            for index in self.message_ids.len()..gen_messages.len() {
-                let msg = &gen_messages[index];
-                let req = Request::post(&format!("{}?wait=true", self.url.trim_end_matches("/")))
+            for msg in gen_messages.iter().skip(self.message_ids.len()) {
+                let req = Request::post(&format!("{}?wait=true", self.url.trim_end_matches('/')))
                     .header("Content-Type", "application/json")
                     .body(serde_json::to_string(&msg)?)?;
                 let mut resp = self.client.send_async(req).await?;
@@ -80,7 +79,7 @@ impl SummaryWebhook {
 }
 fn gen_summmary_messages(database: Database) -> Vec<Message> {
     let mut ret = vec![];
-    for chunk_num in 0..(database.data.clone().len() / 25 + 1) {
+    for chunk_num in 0..(database.data.len() / 25 + 1) {
         let mut m = Message::new();
         m.embed(|e| {
             if chunk_num == 0 {
@@ -94,7 +93,7 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
                     &format!(
                         "Pings: `{}` (Last: {}), Logins: `{}` (Last: {}), `{}`",
                         client.pings.len(),
-                        if client.pings.len() == 0 {
+                        if client.pings.is_empty() {
                             "N/A".to_string()
                         } else {
                             format!(
@@ -109,7 +108,7 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
                             )
                         },
                         client.logins.len(),
-                        if client.logins.len() == 0 {
+                        if client.logins.is_empty() {
                             "N/A".to_string()
                         } else {
                             format!(
@@ -146,7 +145,7 @@ impl ConWebhook {
         WebhookClient::new(&self.url)
             .send(|m| {
                 m.content(
-                    &format!(
+                    format!(
                         "`{}` joined the server
 {} | {}
 {}
