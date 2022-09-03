@@ -20,22 +20,20 @@ mod logger;
 mod packet;
 mod webhook;
 
+use crate::packet::get_all_packets;
+use bytes::BytesMut;
 use clap::Parser;
-use futures::FutureExt;
+use futures::{FutureExt, StreamExt};
 use logger::Logger;
+use std::collections::VecDeque;
+use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
-
 use tokio::io::AsyncWriteExt;
-use tokio::io::{self};
-
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
-
-use std::error::Error;
-
-use crate::packet::get_all_packets;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -84,48 +82,110 @@ async fn transfer(
         .map(|c| c.logins.len())
         .unwrap_or(0);
 
-    let timeout = if reconnects == 0 {
+    println!("reconnects: {}", reconnects);
+
+    let timeout_seconds = if reconnects == 0 {
         // first join, 10-30 minutes
         (rand::random::<f64>() * 60.0 * 20.0) as u64 + 10 * 60
+    } else if reconnects == 1 {
+        // second join, 5-20 minutes
+        (rand::random::<f64>() * 60.0 * 15.0) as u64 + 5 * 60
     } else {
-        // they've joined before, 10-130 seconds
-        (rand::random::<f64>() * 60.0 * 2.0) as u64 + 10
+        // they've joined at least twice, 30s-5m
+        (rand::random::<f64>() * 60.0 * 5.0) as u64 + 30
     };
+
+    // ping is random between 0 and reconnects*1000ms
+    let simulated_ping: u64 = (rand::random::<f32>() * (reconnects as f32) * 1000.0) as u64;
+    println!("simulated_ping: {}ms", simulated_ping);
 
     let mut outbound = match TcpStream::connect(proxy_addr).await {
         Ok(o) => o,
         Err(_) => return Ok(()),
     };
-    let (mut ri, mut wi) = inbound.split();
-    let (mut ro, mut wo) = outbound.split();
-    let mut detected_packets = vec![];
+    let (mut read_inbound, mut write_inbound) = inbound.split();
+    let (read_outbound, mut write_outbound) = outbound.split();
+
     let client_to_server = async {
+        // uses read_inbound and write_outbound
+
         // println!("start");
-        for packet in get_all_packets(&mut ri, &mut wo).await {
+        // wait lag before actually letting them connect
+        tokio::time::sleep(StdDuration::from_millis(simulated_ping)).await;
+
+        for packet in get_all_packets(&mut read_inbound, &mut write_outbound).await {
             let logger = logger.clone();
             let ip = split[0].to_string();
             let p = packet.clone();
-            detected_packets.push(tokio::spawn(async move {
-                logger.write().await.handle_connect(p, &ip).await
-            }));
-            // println!("packet: {:?}", packet)
+            tokio::spawn(async move { logger.write().await.handle_connect(p, &ip).await });
         }
-        io::copy(&mut ri, &mut wo).await?;
-        wo.shutdown().await
+
+        // copy packets from ri to wo
+        let packet_queue: VecDeque<(BytesMut, tokio::time::Instant)> = VecDeque::new();
+        let packet_queue = Arc::new(std::sync::Mutex::new(packet_queue));
+
+        let task_packet_queue = packet_queue.clone();
+
+        // read from the queue and write to write_outbound
+        let read_from_queue = async move {
+            loop {
+                // check if there's something in the packet queue every simulated_ping ms
+                tokio::time::sleep(StdDuration::from_millis(simulated_ping)).await;
+                // if there is, wait until the packet is ready to be sent and send it
+                loop {
+                    let queue_front = packet_queue.lock().unwrap().pop_front();
+                    if let Some((bytes, sent_at)) = &queue_front {
+                        let sending_at = *sent_at + StdDuration::from_millis(simulated_ping);
+                        tokio::time::sleep_until(sending_at).await;
+                        if write_outbound.write_all(bytes.as_ref()).await.is_err() {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        };
+
+        let write_to_queue = async move {
+            let mut framed = FramedRead::new(read_inbound, BytesCodec::new());
+            while let Some(message) = framed.next().await {
+                match message {
+                    Ok(bytes) => {
+                        task_packet_queue
+                            .lock()
+                            .unwrap()
+                            .push_back((bytes, tokio::time::Instant::now()));
+                    }
+                    Err(_) => break,
+                }
+            }
+        };
+
+        tokio::join!(read_from_queue, write_to_queue);
     };
 
     let server_to_client = async {
-        io::copy(&mut ro, &mut wi).await?;
-        wi.shutdown().await
+        let mut outbound_framed = FramedRead::new(read_outbound, BytesCodec::new());
+        // copy packets from ro to wi
+        while let Some(message) = outbound_framed.next().await {
+            match message {
+                Ok(bytes) => {
+                    if write_inbound.write_all(&bytes).await.is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+
+        write_inbound.shutdown().await
     };
 
     let _ = tokio::try_join!(
-        tokio::time::timeout(StdDuration::from_secs(timeout), client_to_server),
-        tokio::time::timeout(StdDuration::from_secs(timeout), server_to_client)
+        tokio::time::timeout(StdDuration::from_secs(timeout_seconds), client_to_server),
+        tokio::time::timeout(StdDuration::from_secs(timeout_seconds), server_to_client)
     );
-    // for jh in detected_packets {
-    //     jh.await??;
-    // }
-    tokio::time::sleep(StdDuration::from_secs(60 * 5)).await;
+
     Ok(())
 }
