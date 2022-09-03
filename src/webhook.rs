@@ -11,8 +11,6 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-
-
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use isahc::{AsyncReadResponseExt, HttpClient, Request};
@@ -47,9 +45,8 @@ impl SummaryWebhook {
     pub async fn update(&mut self, database: Database) -> anyhow::Result<()> {
         let gen_messages = gen_summmary_messages(database.clone());
         if gen_messages.len() != self.message_ids.len() {
-            for index in self.message_ids.len()..gen_messages.len() {
-                let msg = &gen_messages[index];
-                let req = Request::post(&format!("{}?wait=true", self.url.trim_end_matches("/")))
+            for msg in gen_messages.iter().skip(self.message_ids.len()) {
+                let req = Request::post(&format!("{}?wait=true", self.url.trim_end_matches('/')))
                     .header("Content-Type", "application/json")
                     .body(serde_json::to_string(&msg)?)?;
                 let mut resp = self.client.send_async(req).await?;
@@ -82,19 +79,21 @@ impl SummaryWebhook {
 }
 fn gen_summmary_messages(database: Database) -> Vec<Message> {
     let mut ret = vec![];
-    for chunk_num in 0..(database.data.clone().len() / 25 + 1) {
+    for chunk_num in 0..(database.data.len() / 25 + 1) {
         let mut m = Message::new();
         m.embed(|e| {
             if chunk_num == 0 {
                 e.title("Clients");
             }
-            for client in &mut database.data.clone()[..((25 * (chunk_num + 1)) - (25 - database.data.len() % 25))] {
+            for client in &mut database.data.clone()
+                [..((25 * (chunk_num + 1)) - (25 - database.data.len() % 25))]
+            {
                 e.field(
-                        &format!("`{}`", &client.ip),
+                    &format!("`{}`", &client.ip),
                     &format!(
                         "Pings: `{}` (Last: {}), Logins: `{}` (Last: {}), `{}`",
                         client.pings.len(),
-                        if client.pings.len() == 0 {
+                        if client.pings.is_empty() {
                             "N/A".to_string()
                         } else {
                             format!(
@@ -109,7 +108,7 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
                             )
                         },
                         client.logins.len(),
-                        if client.logins.len() == 0 {
+                        if client.logins.is_empty() {
                             "N/A".to_string()
                         } else {
                             format!(
@@ -146,7 +145,7 @@ impl ConWebhook {
         WebhookClient::new(&self.url)
             .send(|m| {
                 m.content(
-                    &format!(
+                    format!(
                         "`{}` joined the server
 {} | {}
 {}
@@ -169,7 +168,14 @@ impl ConWebhook {
     }
     pub async fn handle_ping(&self, client: Client, ping: Ping) -> anyhow::Result<()> {
         WebhookClient::new(&self.url)
-            .send(|m| m.content(&format!("Ping from {}, Con: {}, Target: {}", pretty_ip(&client.ip), client.ipinfo, ping.target)))
+            .send(|m| {
+                m.content(&format!(
+                    "Ping from {}, Con: {}, Target: {}",
+                    pretty_ip(&client.ip),
+                    client.ipinfo,
+                    ping.target
+                ))
+            })
             .await
             .unwrap();
         Ok(())

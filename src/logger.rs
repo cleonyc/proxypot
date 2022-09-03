@@ -15,27 +15,34 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use std::path::PathBuf;
 
-
-
 use crate::{
     config::Config,
-    database::{Database}, webhook::{SummaryWebhook, ConWebhook}, packet::PossiblePacket,
+    database::Database,
+    packet::PossiblePacket,
+    webhook::{ConWebhook, SummaryWebhook},
 };
 pub struct Logger {
     pub database: Database,
     pub config: Config,
     config_path: PathBuf,
     pub summary_webhook: SummaryWebhook,
-    pub webhook: ConWebhook
+    pub webhook: ConWebhook,
 }
 impl Logger {
     pub async fn new(config_path: PathBuf) -> anyhow::Result<Self> {
         let mut config = Config::open(config_path.clone())
             .await
             .expect("Invalid config file specified");
-        let database  = Database::open(config.clone().database).await.unwrap_or_default();
+        let database = Database::open(config.clone().database)
+            .await
+            .unwrap_or_default();
         database.save().await?;
-        let summary_webhook = SummaryWebhook::new(config.clone().summary_webhook_url, config.clone().summary_message_ids, database.clone()).await?;
+        let summary_webhook = SummaryWebhook::new(
+            config.clone().summary_webhook_url,
+            config.clone().summary_message_ids,
+            database.clone(),
+        )
+        .await?;
         config.summary_message_ids = summary_webhook.clone().message_ids;
         config.save(config_path.clone()).await?;
         // if config.summary_message_id.is_none() {
@@ -43,13 +50,13 @@ impl Logger {
         //     config.save(config_path).await?;
         // }
         let webhook = ConWebhook::new(config.clone().webhook_url);
-        
+
         Ok(Self {
             config_path,
             database,
             config,
             summary_webhook,
-            webhook
+            webhook,
         })
     }
     pub async fn handle_connect(&mut self, packet: PossiblePacket, ip: &str) -> anyhow::Result<()> {

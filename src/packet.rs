@@ -128,7 +128,7 @@ pub async fn safe_check_packet_id(reader: &mut (dyn AsyncRead + Unpin + Send)) -
     if packet_id.0 != 0x00 {
         return (false, packet_id.1);
     };
-    return (true, packet_id.1);
+    (true, packet_id.1)
 }
 #[derive(Clone, Debug)]
 pub enum PossiblePacket {
@@ -147,7 +147,7 @@ where
     // println!("138: orig from frame_splitter: {:?}", original_bytes);
     // 1024 bytes *should* be the theoretical maximum for login or status packets that we care about
     // might break if it's an actual valid user key, we'll see
-    if original_bytes.len() > 20000 || original_bytes.len() == 0 || read_bytes.len() == 0 {
+    if original_bytes.len() > 20000 || original_bytes.is_empty() || read_bytes.is_empty() {
         // println!("bad byte len");
         writer.write_all(&original_bytes).await.unwrap();
         // io::copy(stream, writer).await.unwrap();
@@ -199,13 +199,15 @@ where
     ret
 }
 
-fn adapt_from_1_18(bytes: &Vec<u8>) -> Vec<u8> {
-    let mut clone = bytes.clone();
+fn adapt_from_1_18(bytes: &[u8]) -> Vec<u8> {
+    let mut clone = Vec::with_capacity(bytes.len() + 2);
+    clone.extend_from_slice(bytes);
     clone[0] += 2;
-    clone.push(0);
-    clone.push(0);
+    clone.extend_from_slice(&[0x00, 0x00]);
     clone
 }
+
+#[cfg(test)]
 mod tests {
     use azalea_protocol::{
         packets::handshake::client_intention_packet::ClientIntentionPacket, write::write_packet,
