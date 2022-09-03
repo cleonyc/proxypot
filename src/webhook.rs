@@ -11,8 +11,6 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-
-
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 use isahc::{AsyncReadResponseExt, HttpClient, Request};
@@ -88,9 +86,11 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
             if chunk_num == 0 {
                 e.title("Clients");
             }
-            for client in &mut database.data.clone()[..((25 * (chunk_num + 1)) - (25 - database.data.len() % 25))] {
+            for client in &mut database.data.clone()
+                [..((25 * (chunk_num + 1)) - (25 - database.data.len() % 25))]
+            {
                 e.field(
-                        &format!("`{}`", &client.ip),
+                    &format!("`{}`", &client.ip),
                     &format!(
                         "Pings: `{}` (Last: {}), Logins: `{}` (Last: {}), `{}`",
                         client.pings.len(),
@@ -169,7 +169,14 @@ impl ConWebhook {
     }
     pub async fn handle_ping(&self, client: Client, ping: Ping) -> anyhow::Result<()> {
         WebhookClient::new(&self.url)
-            .send(|m| m.content(&format!("Ping from {}, Con: {}, Target: {}", pretty_ip(&client.ip), client.ipinfo, ping.target)))
+            .send(|m| {
+                m.content(&format!(
+                    "Ping from {}, Con: {}, Target: {}",
+                    pretty_ip(&client.ip),
+                    client.ipinfo,
+                    ping.target
+                ))
+            })
             .await
             .unwrap();
         Ok(())

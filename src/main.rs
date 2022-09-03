@@ -20,12 +20,6 @@ mod logger;
 mod packet;
 mod webhook;
 
-
-
-
-
-
-
 use clap::Parser;
 use futures::FutureExt;
 use logger::Logger;
@@ -41,7 +35,7 @@ use tokio::sync::RwLock;
 
 use std::error::Error;
 
-use crate::packet::{get_all_packets};
+use crate::packet::get_all_packets;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -81,7 +75,14 @@ async fn transfer(
     let peer = inbound.peer_addr()?.to_string();
     let split = peer.split(":").collect::<Vec<&str>>();
     let mut timeout = (rand::random::<f64>() * 60.0 * 20.0) as u64 + 10 * 60;
-    if let Some(client)  = logger.read().await.database.data.iter().find(|c| c.ip == split[0]) {
+    if let Some(client) = logger
+        .read()
+        .await
+        .database
+        .data
+        .iter()
+        .find(|c| c.ip == split[0])
+    {
         if client.logins.len() > 1 {
             timeout = (rand::random::<f64>() * 60.0 * 2.0) as u64 + 10;
         }
@@ -95,8 +96,8 @@ async fn transfer(
     let mut detected_packets = vec![];
     let client_to_server = async {
         // println!("start");
-        for packet in get_all_packets(&mut ri,&mut wo).await {
-            let lc  = logger.clone();
+        for packet in get_all_packets(&mut ri, &mut wo).await {
+            let lc = logger.clone();
             let ip = split[0].clone().to_string();
             let p = packet.clone();
             detected_packets.push(tokio::spawn(async move {
@@ -109,7 +110,6 @@ async fn transfer(
         r
     };
 
-    
     let server_to_client = async {
         io::copy(&mut ro, &mut wi).await?;
         wi.shutdown().await
