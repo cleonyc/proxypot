@@ -1,6 +1,6 @@
 [package]
 name = "proxypot"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 description = "Proxies all incoming connections to a minecraft server of your choosing, while also logging all ping and login requests to a json file and discord webhook."
 license = "GPL-3.0-or-later"

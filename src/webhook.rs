@@ -126,7 +126,6 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
                     false,
                 );
             }
-            e.footer("IP Geolocation by DB-IP https://db-ip.com", None);
             e
         });
         ret.push(m)
