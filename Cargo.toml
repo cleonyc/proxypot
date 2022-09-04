@@ -26,6 +26,7 @@ uuid = { version = "1.1.2", features = ["v4", "fast-rng", "serde"] }
 rand = "0.8.5"
 tokio-util = "0.7.3"
 bytes = "1.2.1"
+downloader = { version = "0.2.6", features = ["tui"] }
 
 [profile.release]
 lto = true

@@ -19,6 +19,7 @@ mod database;
 mod logger;
 mod packet;
 mod webhook;
+mod ipinfo;
 
 use crate::packet::get_all_packets;
 use bytes::BytesMut;

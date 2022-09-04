@@ -220,7 +220,7 @@ mod tests {
     #[tokio::test]
     async fn test_adapt_1_18() {
         assert_eq!(
-            adapt_from_1_18(&vec![6, 0, 4, 50, 57, 55, 56]),
+            adapt_from_1_18(&[6, 0, 4, 50, 57, 55, 56]),
             vec![8, 0, 4, 50, 57, 55, 56, 0, 0]
         );
     }
@@ -234,7 +234,7 @@ mod tests {
         // .get();
         let mut random_data: [u8; 2048] = [0; 2048];
         rand::thread_rng().fill(&mut random_data);
-        let random_data_orig = random_data.clone();
+        let random_data_orig = random_data;
         {
             let mut buf = vec![];
 
@@ -253,7 +253,7 @@ mod tests {
             .await
             .unwrap();
             // old 1.18.2 hello packet
-            buf.write_all(&vec![6, 0, 4, 50, 57, 55, 56]).await.unwrap();
+            buf.write_all(&[6, 0, 4, 50, 57, 55, 56]).await.unwrap();
 
             // write_packet(hello_packet, &mut buf, None, &mut None)
             //     .await

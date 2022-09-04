@@ -79,19 +79,18 @@ impl SummaryWebhook {
 }
 fn gen_summmary_messages(database: Database) -> Vec<Message> {
     let mut ret = vec![];
-    for chunk_num in 0..(database.data.len() / 25 + 1) {
+    for (chunk_num, chunk) in database.data.chunks(25).enumerate() {
         let mut m = Message::new();
         m.embed(|e| {
             if chunk_num == 0 {
                 e.title("Clients");
             }
-            for client in &mut database.data.clone()
-                [..((25 * (chunk_num + 1)) - (25 - database.data.len() % 25))]
+            for client in chunk
             {
                 e.field(
                     &format!("`{}`", &client.ip),
                     &format!(
-                        "Pings: `{}` (Last: {}), Logins: `{}` (Last: {}), `{}`",
+                        "Pings: `{}` ({}), Logins: `{}` ({}), `{}`",
                         client.pings.len(),
                         if client.pings.is_empty() {
                             "N/A".to_string()
@@ -127,6 +126,7 @@ fn gen_summmary_messages(database: Database) -> Vec<Message> {
                     false,
                 );
             }
+            e.footer("IP Geolocation by DB-IP https://db-ip.com", None);
             e
         });
         ret.push(m)
