@@ -182,5 +182,5 @@ impl ConWebhook {
 }
 
 fn pretty_ip(ip: &str) -> String {
-    format!("<[`{}`](https://ipinfo.io/{})>", ip, ip)
+    format!("[`{}`](<https://ipinfo.io/{}>)", ip, ip)
 }
